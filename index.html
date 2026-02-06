@@ -5,62 +5,74 @@
 <title>Tính tiền trọ</title>
 <style>
 body {
-    font-family: Arial, sans-serif;
-    background: #f4f4f4;
+  font-family: Arial, sans-serif;
+  background: #f2f2f2;
 }
 .box {
-    max-width: 420px;
-    margin: 40px auto;
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
+  max-width: 520px;
+  margin: 30px auto;
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
 }
-h2 {
-    text-align: center;
-}
-label {
-    display: block;
-    margin-top: 12px;
-}
-input {
-    width: 100%;
-    padding: 8px;
-    margin-top: 4px;
+h2 { text-align: center; }
+label { display: block; margin-top: 10px; }
+input, select, button {
+  width: 100%;
+  padding: 8px;
+  margin-top: 4px;
 }
 button {
-    width: 100%;
-    padding: 10px;
-    margin-top: 15px;
-    font-size: 16px;
+  margin-top: 12px;
+  font-size: 16px;
 }
-.result {
-    margin-top: 15px;
-    white-space: pre-line;
+.month {
+  border-top: 1px solid #ddd;
+  margin-top: 10px;
+  padding-top: 10px;
+  white-space: pre-line;
 }
-.reset {
-    background: #f44336;
-    color: white;
+.edit {
+  background: #ff9800;
+  color: white;
+}
+.delete {
+  background: #f44336;
+  color: white;
 }
 </style>
 </head>
 
 <body>
 <div class="box">
-    <h2>🏠 TÍNH TIỀN TRỌ</h2>
+<h2>🏠 TÍNH TIỀN TRỌ</h2>
 
-    <label>Số người ở:</label>
-    <input type="number" id="people" value="1" min="1">
+<label>Số người ở:</label>
+<input type="number" id="people" value="1" min="1">
 
-    <label>Chỉ số điện MỚI:</label>
-    <input type="number" id="dienMoi">
+<label>Chỉ số điện MỚI:</label>
+<input type="number" id="dienMoi">
 
-    <label>Chỉ số nước MỚI:</label>
-    <input type="number" id="nuocMoi">
+<label>Chỉ số nước MỚI:</label>
+<input type="number" id="nuocMoi">
 
-    <button onclick="tinhTien()">Tính tiền tháng này</button>
-    <button class="reset" onclick="resetAll()">Reset về tháng 1</button>
+<button onclick="themThang()">➕ Thêm tháng mới</button>
 
-    <div class="result" id="output"></div>
+<hr>
+
+<label>Chọn tháng cần sửa:</label>
+<select id="chonThang"></select>
+
+<label>Điện MỚI (sửa):</label>
+<input type="number" id="dienSua">
+
+<label>Nước MỚI (sửa):</label>
+<input type="number" id="nuocSua">
+
+<button class="edit" onclick="suaThang()">✏️ Sửa tháng</button>
+<button class="delete" onclick="resetAll()">🗑️ Xóa toàn bộ</button>
+
+<div id="list"></div>
 </div>
 
 <script>
@@ -69,53 +81,97 @@ const GIA_NUOC = 12000;
 const TIEN_PHONG = 2200000;
 const TIEN_RAC = 5000;
 
-let dienCu = Number(localStorage.getItem("dienCu")) || 0;
-let nuocCu = Number(localStorage.getItem("nuocCu")) || 0;
-let thang = Number(localStorage.getItem("thang")) || 0;
+let months = JSON.parse(localStorage.getItem("months")) || [];
 
-function tinhTien() {
-    let dienMoi = Number(document.getElementById("dienMoi").value);
-    let nuocMoi = Number(document.getElementById("nuocMoi").value);
-    let people = Number(document.getElementById("people").value);
+function save() {
+  localStorage.setItem("months", JSON.stringify(months));
+}
 
-    if (dienMoi < dienCu || nuocMoi < nuocCu) {
-        alert("Chỉ số mới phải lớn hơn hoặc bằng chỉ số cũ!");
-        return;
+function themThang() {
+  let dienMoi = Number(dienMoiInput.value);
+  let nuocMoi = Number(nuocMoiInput.value);
+  let people = Number(peopleInput.value);
+
+  let last = months[months.length - 1];
+  let dienCu = last ? last.dienMoi : 0;
+  let nuocCu = last ? last.nuocMoi : 0;
+
+  if (dienMoi < dienCu || nuocMoi < nuocCu) {
+    alert("Chỉ số mới phải >= chỉ số cũ");
+    return;
+  }
+
+  months.push({
+    thang: months.length + 1,
+    dienCu, dienMoi,
+    nuocCu, nuocMoi
+  });
+
+  save();
+  render();
+}
+
+function suaThang() {
+  let idx = chonThang.value;
+  if (idx === "") return;
+
+  months[idx].dienMoi = Number(dienSua.value);
+  months[idx].nuocMoi = Number(nuocSua.value);
+
+  for (let i = idx; i < months.length; i++) {
+    if (i > 0) {
+      months[i].dienCu = months[i - 1].dienMoi;
+      months[i].nuocCu = months[i - 1].nuocMoi;
     }
+    if (months[i].dienMoi < months[i].dienCu ||
+        months[i].nuocMoi < months[i].nuocCu) {
+      alert("Sai dữ liệu sau khi sửa!");
+      return;
+    }
+  }
 
-    let sdien = dienMoi - dienCu;
-    let snuoc = nuocMoi - nuocCu;
+  save();
+  render();
+}
 
-    let tienDien = sdien * GIA_DIEN;
-    let tienNuoc = snuoc * GIA_NUOC;
-    let tong = TIEN_PHONG + TIEN_RAC + tienDien + tienNuoc;
+function render() {
+  list.innerHTML = "";
+  chonThang.innerHTML = "<option value=''>-- Chọn tháng --</option>";
 
-    thang++;
+  months.forEach((m, i) => {
+    let sd = m.dienMoi - m.dienCu;
+    let sn = m.nuocMoi - m.nuocCu;
+    let tong = TIEN_PHONG + TIEN_RAC + sd * GIA_DIEN + sn * GIA_NUOC;
 
-    document.getElementById("output").innerText =
-        `📅 Tháng: ${thang}
-⚡ Điện: ${sdien} kWh = ${tienDien.toLocaleString()} VND
-💧 Nước: ${snuoc} m³ = ${tienNuoc.toLocaleString()} VND
-🏠 Phòng: ${TIEN_PHONG.toLocaleString()} VND
-🗑️ Rác/DV: ${TIEN_RAC.toLocaleString()} VND
--------------------------
+    list.innerHTML += `
+<div class="month">
+📅 Tháng ${m.thang}
+⚡ Điện: ${sd} kWh
+💧 Nước: ${sn} m³
 💰 Tổng: ${tong.toLocaleString()} VND
-👤 Mỗi người: ${(tong / people).toLocaleString()} VND`;
+</div>`;
 
-    localStorage.setItem("dienCu", dienMoi);
-    localStorage.setItem("nuocCu", nuocMoi);
-    localStorage.setItem("thang", thang);
-
-    document.getElementById("dienMoi").value = "";
-    document.getElementById("nuocMoi").value = "";
+    chonThang.innerHTML += `<option value="${i}">Tháng ${m.thang}</option>`;
+  });
 }
 
 function resetAll() {
-    if (confirm("Reset toàn bộ dữ liệu về tháng 1?")) {
-        localStorage.clear();
-        location.reload();
-    }
+  if (confirm("Xóa toàn bộ dữ liệu?")) {
+    localStorage.clear();
+    months = [];
+    render();
+  }
 }
+
+const dienMoiInput = document.getElementById("dienMoi");
+const nuocMoiInput = document.getElementById("nuocMoi");
+const dienSua = document.getElementById("dienSua");
+const nuocSua = document.getElementById("nuocSua");
+const peopleInput = document.getElementById("people");
+const list = document.getElementById("list");
+const chonThang = document.getElementById("chonThang");
+
+render();
 </script>
 </body>
 </html>
